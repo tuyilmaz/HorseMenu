@@ -338,6 +338,14 @@ namespace YimMenu::Submenus
 
 		AddCategory(std::move(globals));
 
+		auto awardT = std::make_shared<Category>("Awards");
+
+		awardT->AddItem(std::make_shared<ImGuiItem>([] {
+			RenderAwardTab();
+		}));
+
+		AddCategory(std::move(awardT));
+
 		auto debug = std::make_shared<Category>("Logging");
 		debug->AddItem(std::make_shared<BoolCommandItem>("logclones"_J));
 		debug->AddItem(std::make_shared<BoolCommandItem>("logevents"_J));
