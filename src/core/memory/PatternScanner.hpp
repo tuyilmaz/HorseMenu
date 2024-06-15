@@ -1,6 +1,7 @@
 #pragma once
 #include "Pattern.hpp"
 #include "PointerCalculator.hpp"
+#include "game/pointers/PointerCache.hpp"
 
 #include <functional>
 #include <vector>

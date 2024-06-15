@@ -29,4 +29,6 @@ namespace YimMenu
 
 		return result;
 	}
+
+	extern joaat_t GetJoaatHashOfString(const std::string s);
 }

@@ -88,6 +88,7 @@ namespace YimMenu::Submenus
 
 		toolsGroup->AddItem(std::make_shared<CommandItem>("suicide"_J));
 		toolsGroup->AddItem(std::make_shared<CommandItem>("clearcrimes"_J));
+		toolsGroup->AddItem(std::make_shared<CommandItem>("killenemies"_J));
 		toolsGroup->AddItem(std::make_shared<ImGuiItem>([] {
 			if (ImGui::Button("Unfreeze"))
 				FiberPool::Push([] {

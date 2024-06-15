@@ -6,6 +6,16 @@
 
 namespace YimMenu::Scripts
 {
+	inline rage::scrProgram* FindScriptProgram(rage::joaat_t hash)
+	{
+		auto program = Pointers.GetScriptProgram(Pointers.scrProgramDirectory, hash);
+
+		if (program)
+			return program;
+
+		return nullptr;
+	}
+
 	rage::scrThread* FindScriptThread(joaat_t hash)
 	{
 		for (auto& thread : *Pointers.ScriptThreads)
@@ -38,5 +48,28 @@ namespace YimMenu::Scripts
 				SCRIPTS::TRIGGER_SCRIPT_EVENT(1, data, count, 0, &bits);
 			});
 		}
+	}
+
+	inline const std::optional<uint32_t> GetCodeLocationByPattern(rage::scrProgram* program, const scrMemory::pattern& pattern)
+	{
+		uint32_t code_size = program->m_code_size;
+		for (uint32_t i = 0; i < (code_size - pattern.m_bytes.size()); i++)
+		{
+			for (uint32_t j = 0; j < pattern.m_bytes.size(); j++)
+				if (pattern.m_bytes[j].has_value())
+					if (pattern.m_bytes[j].value() != *program->get_code_address(i + j))
+						goto incorrect;
+
+			return i;
+		incorrect:
+			continue;
+		}
+
+		return std::nullopt;
+	}
+
+	rage::eThreadState RunScript(uint64_t* stack, rage::scrProgram* program, rage::scrThreadContext* ctx)
+	{
+		return Pointers.ScriptVM(stack, Pointers.ScriptGlobals, *(__int64*)Pointers.ScriptVMByte, program, ctx);
 	}
 }

@@ -1,4 +1,7 @@
 #pragma once
+#include "PointerCache.hpp"
+#include "core/filemgr/File.hpp"
+#include "core/filemgr/FileMgr.hpp"
 #include "game/rdr/GraphicsOptions.hpp"
 #include "game/rdr/RenderingInfo.hpp"
 #include <rage/pools.hpp>
@@ -7,6 +10,8 @@
 #include <dxgi1_4.h>
 #include <rage/atArray.hpp>
 #include <script/scrNativeHandler.hpp>
+#include <script/scrProgramTable.hpp>
+#include <script/scrThread.hpp>
 #include <vulkan/vulkan.h>
 #include <windows.h>
 
@@ -14,6 +19,7 @@ class CNetGamePlayer;
 class CVehicle;
 class CPed;
 class CNetworkPlayerMgr;
+class gBaseScriptDirectory;
 
 namespace rage
 {
@@ -41,6 +47,8 @@ namespace YimMenu
 		using GetNetObjectById          = rage::netObject* (*)(uint16_t id);
 		using RequestControlOfNetObject = bool (*)(rage::netObject** netId, bool unk);
 		using SendNetInfoToLobby        = bool (*)(rage::rlGamerInfo* player, int64_t a2, int64_t a3, DWORD* a4);
+		using ScriptVM = rage::eThreadState (*)(uint64_t* stack, int64_t** scr_globals, __int64 unkByte, rage::scrProgram* program, rage::scrThreadContext* ctx);
+		using GetScriptProgram = rage::scrProgram* (*)(gBaseScriptDirectory*, uint32_t);
 	};
 
 	struct PointerData
@@ -56,6 +64,12 @@ namespace YimMenu
 		rage::scrThread** CurrentScriptThread;
 		Functions::GetLocalPed GetLocalPed;
 		Functions::SendNetInfoToLobby SendNetInfoToLobby;
+		rage::scrProgramTable* ScriptProgramTable;
+		PVOID InitNativeTables;
+		Functions::ScriptVM ScriptVM;
+		PVOID ScriptVMByte;
+		Functions::GetScriptProgram GetScriptProgram;
+		gBaseScriptDirectory* scrProgramDirectory;
 
 		PoolEncryption* PedPool;
 		PoolEncryption* ObjectPool;
@@ -139,6 +153,8 @@ namespace YimMenu
 	{
 		bool Init();
 		void Restore();
+
+		PointerCache Cache{1};
 	};
 
 	inline YimMenu::Pointers Pointers;

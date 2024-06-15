@@ -100,6 +100,28 @@ namespace YimMenu
 			CurrentScriptThread = ptr.Add(3).Rip().As<rage::scrThread**>();
 		});
 
+		constexpr auto initNativeTablesPtrn = Pattern<"48 8B 15 ? ? ? ? 49 8B 7B 40">("InitNativeTables");
+		scanner.Add(initNativeTablesPtrn, [this](PointerCalculator ptr) {
+			InitNativeTables = ptr.Sub(29).As<PVOID>();
+		});
+
+		constexpr auto scriptProgramTablePtrn = Pattern<"4C 8B 15 ? ? ? ? 42 0F B6 0C">("ScriptProgramTable");
+		scanner.Add(scriptProgramTablePtrn, [this](PointerCalculator ptr) {
+			ScriptProgramTable = ptr.Add(3).Rip().As<rage::scrProgramTable*>();
+		});
+
+		constexpr auto ScriptVMPtrn = Pattern<"E8 ? ? ? ? 65 48 8B ? ? ? ? ? ? 48 85 F6 48">("ScriptVM");
+		scanner.Add(ScriptVMPtrn, [this](PointerCalculator ptr) {
+			ScriptVM     = ptr.Add(1).Rip().As<Functions::ScriptVM>();
+			ScriptVMByte = ptr.Sub(76).Rip().As<PVOID>();
+		});
+
+		constexpr auto GetScriptProgramPtrn = Pattern<"E8 ? ? ? ? 4C 8B C8 8B 45 10">("GetScriptProgram");
+		scanner.Add(GetScriptProgramPtrn, [this](PointerCalculator ptr) {
+			GetScriptProgram    = ptr.Add(1).Rip().As<Functions::GetScriptProgram>();
+			scrProgramDirectory = ptr.Sub(4).Rip().As<gBaseScriptDirectory*>();
+		});
+
 		constexpr auto sendMetricPtrn = Pattern<"48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 20 48 8B F1 48 8B FA B1">("SendMetric");
 		scanner.Add(sendMetricPtrn, [this](PointerCalculator ptr) {
 			SendMetric = ptr.As<PVOID*>();

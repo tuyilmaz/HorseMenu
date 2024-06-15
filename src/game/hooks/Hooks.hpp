@@ -2,7 +2,8 @@
 #include <D3D12.h>
 #include <dxgi1_4.h>
 #include <vulkan/vulkan.h>
-
+#include <script/scrNativeHandler.hpp>
+#include <script/scrProgram.hpp>
 
 namespace rage
 {
@@ -50,6 +51,7 @@ namespace YimMenu::Hooks
 	namespace Script
 	{
 		extern bool RunScriptThreads(void* threads, int unk);
+		extern bool InitNativeTables(rage::scrProgram* program);
 	}
 
 	namespace Anticheat

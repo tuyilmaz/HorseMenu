@@ -1,9 +1,16 @@
 #include "Debug.hpp"
 
 #include "core/filemgr/FileMgr.hpp"
+#include "core/frontend/Notifications.hpp"
+#include "game/backend/FiberPool.hpp"
+#include "game/backend/ScriptMgr.hpp"
 #include "game/features/features.hpp"
 #include "game/frontend/items/Items.hpp"
+#include "game/rdr/Natives.hpp"
+#include "game/rdr/RuleService.hpp"
 #include "game/rdr/ScriptGlobal.hpp"
+#include "game/rdr/ScriptFunction/ScriptFunction.hpp"
+#include "game/rdr/Scripts.hpp"
 
 
 namespace YimMenu::Submenus
@@ -253,6 +260,71 @@ namespace YimMenu::Submenus
 			global_test.global_appendages.push_back({GlobalAppendageType_ReadGlobal, 0LL, 0ULL, selected_global});
 		}
 		ImGui::EndGroup();
+	}
+
+	static std::string awardName = "";
+	static bool b1 = false, b2 = false, pedIDb = false, addRule = false;
+	static int pedID = 255, i1 = 0, loopAmount = 1;
+	void RenderAwardTab()
+	{
+		InputTextWithHint("Award Name", "Enter Award Name", &awardName).Draw();
+
+		ImGui::Checkbox("Bool 1", &b1);
+		ImGui::SameLine();
+		ImGui::Checkbox("Bool2", &b2);
+
+		ImGui::InputScalar("Player ID", ImGuiDataType_S32, &pedID);
+		ImGui::SameLine();
+		ImGui::Checkbox("Auto", &pedIDb);
+
+		ImGui::InputScalar("Int 1", ImGuiDataType_S32, &i1);
+
+		ImGui::SliderInt("Loop Amount", &loopAmount, 1, 20);
+
+		ImGui::Checkbox("Add Max Claim Rule", &addRule);
+
+		if (pedIDb)
+			pedID = Self::Id;
+
+		joaat_t awardH = GetJoaatHashOfString(awardName);
+
+		if (ImGui::Button("Give Award"))
+		{
+			joaat_t awardsHash = awardH;
+			FiberPool::Push([awardsHash] {
+				joaat_t hash = "net_main_offline"_J;
+				if (!SCRIPTS::HAS_SCRIPT_WITH_NAME_HASH_LOADED(hash))
+				{
+					SCRIPTS::REQUEST_SCRIPT_WITH_NAME_HASH(hash);
+					for (int i = 0; i < 150 && !SCRIPTS::HAS_SCRIPT_WITH_NAME_HASH_LOADED(hash); i++)
+						ScriptMgr::Yield(10ms);
+				}
+
+				if (addRule)
+					g_award_service->add_rule(awardsHash, false);
+
+				for (int i = 0; i < loopAmount; i++)
+					scr_functions::give_award.static_call({awardsHash, b1, (uint64_t)pedID, (uint64_t)i1, b2});
+
+				if (addRule)
+					g_award_service->remove_rule(awardsHash);
+			});
+		}
+
+		if (ImGui::Button("Request Empty Session"))
+		{
+			FiberPool::Push([] {
+				if (NETWORK::NETWORK_AUTO_SESSION_SPLIT_SESSION(1, 1, 0, -1))
+				{
+					for (int i = 0; i < 150 && !NETWORK::_NETWORK_AUTO_SESSION_SPLIT_SESSION_SUCCESSFUL(); i++)
+						ScriptMgr::Yield(10ms);
+					if (NETWORK::_NETWORK_AUTO_SESSION_SPLIT_SESSION_SUCCESSFUL())
+						Notifications::Show("Session Request", "Switched to solo session", NotificationType::Success);
+					else
+						Notifications::Show("Session Request", "Failed to switch session", NotificationType::Error);
+				}
+			});
+		}
 	}
 
 	Debug::Debug() :

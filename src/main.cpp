@@ -12,11 +12,26 @@
 #include "game/bigfeatures/CustomTeleport.hpp"
 #include "game/features/Features.hpp"
 #include "game/frontend/GUI.hpp"
+#include "game/hooks/NativeHooks/NativeHook.hpp"
 #include "game/pointers/Pointers.hpp"
+#include "game/rdr/RuleService.hpp"
 
 
 namespace YimMenu
 {
+	DWORD unload()
+	{
+		Pointers.Cache.Unload();
+		Hooking::Destroy();
+		Renderer::Destroy();
+		Pointers.Restore();
+
+		LogHelper::Destroy();
+
+		CloseHandle(g_MainThread);
+		FreeLibraryAndExitThread(g_DllInstance, EXIT_SUCCESS);
+	}
+
 	DWORD Main(void*)
 	{
 		const auto documents = std::filesystem::path(std::getenv("appdata")) / "HorseMenu";
@@ -29,13 +44,16 @@ namespace YimMenu
 		Settings::Initialize(FileMgr::GetProjectFile("./settings.json"));
 
 		if (!ModuleMgr.LoadModules())
-			goto unload;
+			return unload();
 		if (!Pointers.Init())
-			goto unload;
+			return unload();
 		if (!Renderer::Init())
-			goto unload;
+			return unload();
 
 		Byte_Patch_Manager::Init();
+
+		auto awards_service = std::make_unique<AwardService>();
+		LOG(INFO) << "Registered service instances.";
 
 		Hooking::Init();
 
@@ -44,6 +62,9 @@ namespace YimMenu
 
 		FiberPool::Init(5);
 		LOG(INFO) << "FiberPool Initialized";
+
+		auto native_hooks_instance = std::make_unique<native_hooks>();
+		LOG(INFO) << "Dynamic native hooker initialized.";
 
 		GUI::Init();
 
@@ -73,17 +94,7 @@ namespace YimMenu
 		FiberPool::Destroy();
 		LOG(INFO) << "FiberPool Uninitialized";
 
-	unload:
-		Hooking::Destroy();
-		Renderer::Destroy();
-		Pointers.Restore();
-
-		LogHelper::Destroy();
-
-		CloseHandle(g_MainThread);
-		FreeLibraryAndExitThread(g_DllInstance, EXIT_SUCCESS);
-
-		return EXIT_SUCCESS;
+		return unload();
 	}
 }
 
