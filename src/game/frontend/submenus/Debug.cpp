@@ -290,8 +290,7 @@ namespace YimMenu::Submenus
 
 		if (ImGui::Button("Give Award"))
 		{
-			joaat_t awardsHash = awardH;
-			FiberPool::Push([awardsHash] {
+			FiberPool::Push([awardH] {
 				joaat_t hash = "net_main_offline"_J;
 				if (!SCRIPTS::HAS_SCRIPT_WITH_NAME_HASH_LOADED(hash))
 				{
@@ -301,13 +300,13 @@ namespace YimMenu::Submenus
 				}
 
 				if (addRule)
-					g_award_service->add_rule(awardsHash, false);
+					g_award_service->add_rule(awardH, false);
 
 				for (int i = 0; i < loopAmount; i++)
-					scr_functions::give_award.static_call({awardsHash, b1, (uint64_t)pedID, (uint64_t)i1, b2});
+					scr_functions::give_award.static_call({awardH, b1, (uint64_t)pedID, (uint64_t)i1, b2});
 
 				if (addRule)
-					g_award_service->remove_rule(awardsHash);
+					g_award_service->remove_rule(awardH);
 			});
 		}
 
