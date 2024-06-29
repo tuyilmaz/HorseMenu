@@ -35,7 +35,7 @@ namespace YimMenu
 			uintptr_t cachedPointer = Pointers.Cache.GetData(pattern->Name().data());
 			if (cachedPointer != 0 && !forceUpdate)
 			{
-				std::invoke(func, cachedPointer);
+				std::invoke(func, cachedPointer + m_Module->Base());
 			}
 			else
 			{
@@ -82,7 +82,7 @@ namespace YimMenu
 
 				std::invoke(func, i);
 
-				Pointers.Cache.GetOrUpdate(pattern->Name().data(), i);
+				Pointers.Cache.GetOrUpdate(pattern->Name().data(), i - m_Module->Base());
 
 				return true;
 			}
