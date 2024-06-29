@@ -4,16 +4,17 @@
 #include "core/filemgr/FileMgr.hpp"
 #include "game/rdr/GraphicsOptions.hpp"
 #include "game/rdr/RenderingInfo.hpp"
-#include <rage/pools.hpp>
 
 #include <d3d12.h>
 #include <dxgi1_4.h>
 #include <rage/atArray.hpp>
+#include <rage/pools.hpp>
 #include <script/scrNativeHandler.hpp>
 #include <script/scrProgramTable.hpp>
 #include <script/scrThread.hpp>
 #include <vulkan/vulkan.h>
 #include <windows.h>
+
 
 class CNetGamePlayer;
 class CVehicle;
@@ -28,6 +29,10 @@ namespace rage
 	class netSyncTree;
 	class netObject;
 	class rlGamerInfo;
+	class netConnectionManager;
+	class netPeerAddress;
+	class rlGamerHandle;
+	class datBitBuffer;
 }
 
 namespace YimMenu
@@ -46,7 +51,10 @@ namespace YimMenu
 		using WorldToScreen             = bool (*)(float* world_coords, float* out_x, float* out_y);
 		using GetNetObjectById          = rage::netObject* (*)(uint16_t id);
 		using RequestControlOfNetObject = bool (*)(rage::netObject** netId, bool unk);
-		using SendNetInfoToLobby        = bool (*)(rage::rlGamerInfo* player, int64_t a2, int64_t a3, DWORD* a4);
+		using SendPacket = bool (*)(rage::netConnectionManager* mgr, rage::netPeerAddress* adde, int connection_id, void* data, int size, int flags);
+		using QueuePacket = bool (*)(rage::netConnectionManager* mgr, int msg_id, void* data, int size, int flags, void* unk);
+		using PostPresenceMessage = bool (*)(int localGamerIndex, rage::rlGamerInfo* recipients, int numRecipients, const char* msg, unsigned int ttlSeconds);
+		using SendNetInfoToLobby = bool (*)(rage::rlGamerInfo* player, int64_t a2, int64_t a3, DWORD* a4);
 		using ScriptVM = rage::eThreadState (*)(uint64_t* stack, int64_t** scr_globals, __int64 unkByte, rage::scrProgram* program, rage::scrThreadContext* ctx);
 		using GetScriptProgram = rage::scrProgram* (*)(gBaseScriptDirectory*, uint32_t);
 	};
@@ -63,6 +71,10 @@ namespace YimMenu
 		PVOID RunScriptThreads;
 		rage::scrThread** CurrentScriptThread;
 		Functions::GetLocalPed GetLocalPed;
+		Functions::SendPacket SendPacket;
+		Functions::QueuePacket QueuePacket;
+		PVOID HandlePresenceEvent;
+		Functions::PostPresenceMessage PostPresenceMessage;
 		Functions::SendNetInfoToLobby SendNetInfoToLobby;
 		rage::scrProgramTable* ScriptProgramTable;
 		PVOID InitNativeTables;
@@ -94,6 +106,10 @@ namespace YimMenu
 		PVOID ResetSyncNodes;
 		PVOID HandleScriptedGameEvent;
 		PVOID AddObjectToCreationQueue;
+		PVOID ReceiveNetMessage;
+		PVOID SendComplaint;
+		PVOID ReceiveServerMessage;
+		PVOID SerializeServerRPC;
 
 		// Player Stuff
 		PVOID PlayerHasJoined;
