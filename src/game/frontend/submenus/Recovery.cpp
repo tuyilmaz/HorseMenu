@@ -2,10 +2,14 @@
 
 #include "core/commands/BoolCommand.hpp"
 #include "core/commands/Commands.hpp"
+#include "core/frontend/Notifications.hpp"
 #include "game/backend/FiberPool.hpp"
 #include "game/frontend/items/Items.hpp"
+#include "game/rdr/data/Stats.hpp"
+#include "game/rdr/Natives.hpp"
 #include "game/rdr/ScriptFunction.hpp"
 #include "game/rdr/Scripts.hpp"
+#include "game/rdr/Stats.hpp"
 #include "util/Rewards.hpp"
 
 namespace YimMenu::Submenus
@@ -75,6 +79,18 @@ namespace YimMenu::Submenus
 						Rewards::GiveRequestedRewards({selected});
 					});
 				}
+
+				static char awardBuffer[255]{};
+				ImGui::InputText("Award Hash", awardBuffer, sizeof(awardBuffer));
+				ImGui::SameLine();
+				if (ImGui::Button("Give Award"))
+				{
+					FiberPool::Push([] {
+						if (!Scripts::RequestScript("interactive_campfire"_J))
+							return;
+						ScriptFunctions::GiveItemDatabaseAward.StaticCall(Joaat(awardBuffer), false, 255, 0, false);
+					});
+				}
 			}
 			else
 			{
@@ -123,6 +139,145 @@ namespace YimMenu::Submenus
 		recovery->AddItem(spawnHerbsGroup);
 		recovery->AddItem(recoveryOptions);
 
+		auto stats = std::make_shared<Category>("Stats");
+		auto statEditorGroup = std::make_shared<Group>("Stat Editor");
+		statEditorGroup->AddItem(std::make_shared<ImGuiItem>([=] {
+			static std::string baseidBuffer;
+			static std::string permutationidBuffer;
+			static int StatType = 0;
+			static bool BoolValue = false;
+			static int IntValue = 0;
+			static float FloatValue = 0;
+
+			ImGui::SetNextItemWidth(225.0f);
+			InputTextWithHint("##baseid", "Base ID", &baseidBuffer).Draw();
+
+			ImGui::SetNextItemWidth(225.0f);
+			InputTextWithHint("##permutationid", "Permutation ID", &permutationidBuffer).Draw();
+
+			ImGui::SameLine();
+
+			ImGui::SetNextItemWidth(175.f);
+			ImGui::Combo("##stat_type", &StatType, "Bool\0Int\0Float");
+
+			switch (StatType)
+			{
+			case 0:
+			{
+				ImGui::Checkbox("Value", &BoolValue);
+				break;
+			}
+			case 1:
+			{
+				ImGui::SetNextItemWidth(200.f);
+				ImGui::InputInt("Value", &IntValue);
+				break;
+			}
+			case 2:
+			{
+				ImGui::SetNextItemWidth(200.f);
+				ImGui::InputFloat("Value", &FloatValue);
+				break;
+			}
+			}
+
+			if (ImGui::Button("Read Stat"))
+			{
+				FiberPool::Push([] {
+					joaat_t baseid = Joaat(baseidBuffer), permutationid = Joaat(permutationidBuffer);
+					if (!Stats::IsValid(baseid, permutationid))
+					{
+						Notifications::Show("Stat Editor", "Invalid stat!", NotificationType::Error);
+						return;
+					}
+					switch (StatType)
+					{
+					case 0:
+					{
+						BoolValue = Stats::GetBool(baseid, permutationid);
+						break;
+					}
+					case 1:
+					{
+						IntValue = Stats::GetInt(baseid, permutationid);
+						break;
+					}
+					case 2:
+					{
+						FloatValue = Stats::GetFloat(baseid, permutationid);
+						break;
+					}
+					}
+				});
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("Set Stat"))
+			{
+				FiberPool::Push([] {
+					joaat_t baseid = Joaat(baseidBuffer), permutationid = Joaat(permutationidBuffer);
+					if (!Stats::IsValid(baseid, permutationid))
+					{
+						Notifications::Show("Stat Editor", "Invalid stat!", NotificationType::Error);
+						return;
+					}
+					switch (StatType)
+					{
+					case 0:
+					{
+						Stats::SetBool(baseid, permutationid, BoolValue);
+						break;
+					}
+					case 1:
+					{
+						Stats::SetInt(baseid, permutationid, IntValue);
+						break;
+					}
+					case 2:
+					{
+						Stats::SetFloat(baseid, permutationid, FloatValue);
+						break;
+					}
+					}
+				});
+			}
+		}));
+
+		auto allStatsGroup = std::make_shared<Group>("Set All Stats");
+		allStatsGroup->AddItem(std::make_shared<ImGuiItem>([=] {
+			if (ImGui::Button("Bool Stats"))
+			{
+				FiberPool::Push([] {
+					for (auto& stat : Data::bool_stats)
+					{
+						Stats::SetBool(stat.BaseId, stat.PermutationId, stat.desiredValue);
+					}
+				});
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("Int Stats"))
+			{
+				FiberPool::Push([] {
+					for (auto& stat : Data::int_stats)
+					{
+						Stats::IncrementInt(stat.BaseId, stat.PermutationId, stat.desiredValue);
+					}
+				});
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("Float Stats"))
+			{
+				FiberPool::Push([] {
+					for (auto& stat : Data::float_stats)
+					{
+						Stats::IncrementFloat(stat.BaseId, stat.PermutationId, stat.desiredValue);
+					}
+				});
+			}
+		}));
+		stats->AddItem(statEditorGroup);
+		stats->AddItem(allStatsGroup);
+
 		AddCategory(std::move(recovery));
+		AddCategory(std::move(stats));
 	}
 }

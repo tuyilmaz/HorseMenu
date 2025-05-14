@@ -113,9 +113,10 @@ namespace YimMenu::Submenus
 		toxicGroup->AddItem(std::make_shared<CommandItem>("minhonorall"_J));
 
 		miscGroup->AddItem(std::make_shared<BoolCommandItem>("revealall"_J));
-		miscGroup->AddItem(std::make_shared<BoolCommandItem>("disableshopunavailable"_J)); // finish this
-		miscGroup->AddItem(std::make_shared<BoolCommandItem>("disablecampshopunavailable"_J));
-		miscGroup->AddItem(std::make_shared<BoolCommandItem>("disablecampraids"_J));
+
+		//miscGroup->AddItem(std::make_shared<BoolCommandItem>("disableshopunavailable"_J)); // finish this
+		//miscGroup->AddItem(std::make_shared<BoolCommandItem>("disablecampshopunavailable"_J));
+		//miscGroup->AddItem(std::make_shared<BoolCommandItem>("disablecampraids"_J));
 
 		miscGroup->AddItem(std::make_shared<BoolCommandItem>("blockalltelemetry"_J)); // move this to protections->misc
 		miscGroup->AddItem(std::make_shared<BoolCommandItem>("locklobby"_J));
