@@ -98,7 +98,7 @@ namespace YimMenu
 		std::ofstream file(m_SettingsFile, std::ios::out | std::ios::trunc);
 		file << "{}" << std::endl;
 		file.close();
-		m_Json = "{}";
+		m_Json = nlohmann::json::parse("{}");
 		m_InitialLoadDone = true;
 	}
 

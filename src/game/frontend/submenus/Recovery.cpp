@@ -142,54 +142,39 @@ namespace YimMenu::Submenus
 		auto stats = std::make_shared<Category>("Stats");
 		auto statEditorGroup = std::make_shared<Group>("Stat Editor");
 		statEditorGroup->AddItem(std::make_shared<ImGuiItem>([=] {
-			static std::string baseidBuffer;
-			static std::string permutationidBuffer;
+			static char baseidBuffer[255]{};
+			static char permutationidBuffer[255]{};
 			static int StatType = 0;
 			static bool BoolValue = false;
 			static int IntValue = 0;
 			static float FloatValue = 0;
+			static bool updateValue = false;
+			static bool isStatValid = false;
 
 			ImGui::SetNextItemWidth(225.0f);
-			InputTextWithHint("##baseid", "Base ID", &baseidBuffer).Draw();
+			if (ImGui::InputText("Base ID", baseidBuffer, sizeof(baseidBuffer)))
+				updateValue = true;
 
 			ImGui::SetNextItemWidth(225.0f);
-			InputTextWithHint("##permutationid", "Permutation ID", &permutationidBuffer).Draw();
+			if (ImGui::InputText("Permutation ID", permutationidBuffer, sizeof(permutationidBuffer)))
+				updateValue = true;
 
 			ImGui::SameLine();
 
 			ImGui::SetNextItemWidth(175.f);
-			ImGui::Combo("##stat_type", &StatType, "Bool\0Int\0Float");
+			if (ImGui::Combo("##stat_type", &StatType, "Bool\0Int\0Float"))
+				updateValue = true;
 
-			switch (StatType)
-			{
-			case 0:
-			{
-				ImGui::Checkbox("Value", &BoolValue);
-				break;
-			}
-			case 1:
-			{
-				ImGui::SetNextItemWidth(200.f);
-				ImGui::InputInt("Value", &IntValue);
-				break;
-			}
-			case 2:
-			{
-				ImGui::SetNextItemWidth(200.f);
-				ImGui::InputFloat("Value", &FloatValue);
-				break;
-			}
-			}
-
-			if (ImGui::Button("Read Stat"))
+			if (updateValue)
 			{
 				FiberPool::Push([] {
 					joaat_t baseid = Joaat(baseidBuffer), permutationid = Joaat(permutationidBuffer);
 					if (!Stats::IsValid(baseid, permutationid))
 					{
-						Notifications::Show("Stat Editor", "Invalid stat!", NotificationType::Error);
+						isStatValid = false;
 						return;
 					}
+					isStatValid = true;
 					switch (StatType)
 					{
 					case 0:
@@ -209,36 +194,61 @@ namespace YimMenu::Submenus
 					}
 					}
 				});
+				updateValue = false;
 			}
-			ImGui::SameLine();
-			if (ImGui::Button("Set Stat"))
+
+			if (isStatValid)
 			{
-				FiberPool::Push([] {
-					joaat_t baseid = Joaat(baseidBuffer), permutationid = Joaat(permutationidBuffer);
-					if (!Stats::IsValid(baseid, permutationid))
-					{
-						Notifications::Show("Stat Editor", "Invalid stat!", NotificationType::Error);
-						return;
-					}
-					switch (StatType)
-					{
-					case 0:
-					{
-						Stats::SetBool(baseid, permutationid, BoolValue);
-						break;
-					}
-					case 1:
-					{
-						Stats::SetInt(baseid, permutationid, IntValue);
-						break;
-					}
-					case 2:
-					{
-						Stats::SetFloat(baseid, permutationid, FloatValue);
-						break;
-					}
-					}
-				});
+				switch (StatType)
+				{
+				case 0:
+				{
+					ImGui::Checkbox("Value", &BoolValue);
+					break;
+				}
+				case 1:
+				{
+					ImGui::SetNextItemWidth(200.f);
+					ImGui::InputInt("Value", &IntValue);
+					break;
+				}
+				case 2:
+				{
+					ImGui::SetNextItemWidth(200.f);
+					ImGui::InputFloat("Value", &FloatValue);
+					break;
+				}
+				}
+
+				if (ImGui::Button("Set Stat"))
+				{
+					FiberPool::Push([] {
+						joaat_t baseid = Joaat(baseidBuffer), permutationid = Joaat(permutationidBuffer);
+						if (!Stats::IsValid(baseid, permutationid))
+						{
+							Notifications::Show("Stat Editor", "Invalid stat!", NotificationType::Error);
+							return;
+						}
+						switch (StatType)
+						{
+						case 0:
+						{
+							Stats::SetBool(baseid, permutationid, BoolValue);
+							break;
+						}
+						case 1:
+						{
+							Stats::SetInt(baseid, permutationid, IntValue);
+							break;
+						}
+						case 2:
+						{
+							Stats::SetFloat(baseid, permutationid, FloatValue);
+							break;
+						}
+						}
+					});
+				}
 			}
 		}));
 
