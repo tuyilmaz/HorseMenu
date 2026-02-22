@@ -2,6 +2,7 @@
 #include "core/frontend/Notifications.hpp"
 #include "core/hooking/DetourHook.hpp"
 #include "core/misc/RateLimiter.hpp"
+#include "core/scripting/LuaManager.hpp"
 #include "game/backend/Players.hpp"
 #include "game/backend/Protections.hpp"
 #include "game/backend/Self.hpp"
@@ -9,6 +10,7 @@
 #include "game/hooks/Hooks.hpp"
 #include "game/rdr/data/StableEvents.hpp"
 #include "game/rdr/data/TickerEvents.hpp"
+#include "util/Joaat.hpp"
 
 #include <network/CNetGamePlayer.hpp>
 #include <network/CScriptedGameEvent.hpp>
@@ -29,8 +31,32 @@ namespace YimMenu::Features
 
 namespace YimMenu::Hooks
 {
+	static bool CheckLuaScripts(CNetGamePlayer* player, CScriptedGameEvent* event)
+	{
+		return LuaManager::DispatchEvent(
+		    "menu.script_event_received"_J,
+		    [player, event](lua_State* state) {
+			    // TODO: pass a Player instance
+			    lua_pushinteger(state, player->m_PlayerIndex);
+
+			    lua_newtable(state);
+			    auto length = event->m_DataSize / 8;
+			    for (int i = 0; i < length; i++)
+			    {
+				    lua_pushinteger(state, i == 0 ? (ptrdiff_t)(int)event->m_Data[i] : event->m_Data[i]);
+				    lua_rawseti(state, -2, i + 1);
+			    }
+
+			    return 2;
+		    },
+		    true);
+	}
+
 	bool Protections::HandleScriptedGameEvent(CScriptedGameEvent* event, CNetGamePlayer* src, CNetGamePlayer* dst)
 	{
+		if (!CheckLuaScripts(src, event))
+			return false;
+
 		if (Features::_LogScriptEvents.GetState())
 		{
 			std::string script_args = "{ ";

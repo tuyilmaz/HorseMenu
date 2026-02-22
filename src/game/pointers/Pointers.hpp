@@ -82,6 +82,8 @@ namespace YimMenu
 		using SendConnectResponse = void (*)(rage::rlScSessionMultiplayer* sess, int message_id, void* data, int flags);
 		using GetPeerAddressByMessageId = rage::netPeerAddress* (*)(rage::netConnectionManager* cxn_mgr, int msg_id);
 		using OpenIceTunnel = bool (*)(rage::rlGamerInfoBase* peer_addr, rage::netPeerAddress* direct_addr, rage::netPeerAddress* relay_addr, bool a4, std::uint64_t session_token, std::uint64_t session_id, rage::rlTaskStatus* status);
+	
+		using GiveAwardWithHash = bool (*)(std::uint32_t* award_hash);
 	};
 
 	struct PointerData
@@ -146,6 +148,9 @@ namespace YimMenu
 		uint32_t (*FwScriptGuidCreateGuid)(void*);
 		CNetworkObjectMgr** NetworkObjectMgr;
 		PVOID HandleCloneRemove;
+
+		Functions::GiveAwardWithHash GiveAwardWithHash;
+		PVOID GiveAwardAmount;
 
 		// Security
 		PVOID SendMetric;

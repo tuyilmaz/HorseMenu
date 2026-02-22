@@ -12,6 +12,16 @@ namespace YimMenu
 			GetInstance().AddSubmenuImpl(std::move(submenu));
 		}
 
+		static void AddSubmenu(std::shared_ptr<Submenu> submenu)
+		{
+			GetInstance().AddSubmenuImpl(std::move(submenu));
+		}
+
+		static void RemoveSubmenu(const std::shared_ptr<Submenu>& submenu)
+		{
+			GetInstance().RemoveSubmenuImpl(submenu);
+		}
+
 		static void SetActiveSubmenu(const std::shared_ptr<Submenu> submenu)
 		{
 			GetInstance().SetActiveSubmenuImpl(submenu);
@@ -37,6 +47,16 @@ namespace YimMenu
 			GetInstance().m_OptionsFont = font;
 		}
 
+		static bool ShowingContentWindow()
+		{
+			return GetInstance().m_ShowContentWindow;
+		}
+
+		static std::shared_ptr<Submenu> FindSubmenuByName(const std::string& name)
+		{
+			return GetInstance().FindSubmenuByNameImpl(name);
+		}
+
 	private:
 		static inline UIManager& GetInstance()
 		{
@@ -44,15 +64,19 @@ namespace YimMenu
 			return instance;
 		}
 
-		void AddSubmenuImpl(const std::shared_ptr<Submenu>&& submenu);
+		void AddSubmenuImpl(std::shared_ptr<Submenu>&& submenu);
+		void RemoveSubmenuImpl(const std::shared_ptr<Submenu>& submenu);
 		void SetActiveSubmenuImpl(const std::shared_ptr<Submenu> submenu);
 		void DrawImpl();
 		std::shared_ptr<Submenu> GetActiveSubmenuImpl();
 		std::shared_ptr<Category> GetActiveCategoryImpl();
+		std::shared_ptr<Submenu> FindSubmenuByNameImpl(const std::string& name);
 
 		std::shared_ptr<Submenu> m_ActiveSubmenu;
 		std::vector<std::shared_ptr<Submenu>> m_Submenus;
+		std::recursive_mutex m_Mutex;
 		ImFont* m_OptionsFont = nullptr;
+		bool m_ShowContentWindow = false;
 	};
 }
 

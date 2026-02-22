@@ -1,6 +1,7 @@
 #include "Rewards.hpp"
 #include "game/pointers/Pointers.hpp"
 #include "game/rdr/ScriptFunction.hpp"
+#include "game/backend/ScriptMgr.hpp"
 #include "game/rdr/Scripts.hpp"
 #include <event/CEventGroup.hpp>
 #include <event/CEventInventoryItemPickedUp.hpp>
@@ -19,10 +20,17 @@ namespace YimMenu::Rewards
 		if (!Scripts::RequestScript("interactive_campfire"_J))
 			return;
 
-		if (loottable)
-			ScriptFunctions::GiveLootTableAward.StaticCall(info.reward_hash, 0);
-		else
-			ScriptFunctions::GiveItemDatabaseAward.StaticCall(info.reward_hash, false, 255, 0, false);
+		BOOL success = false;
+
+		while (!success)
+		{
+			if (loottable)
+				success = ScriptFunctions::GiveLootTableAward.StaticCall<BOOL>(info.reward_hash, 0);
+			else
+				success = ScriptFunctions::GiveItemDatabaseAward.StaticCall<BOOL>(info.reward_hash, false, 255, 0, false);
+
+			ScriptMgr::Yield(10ms);
+		}
 	}
 
 	void GiveRequestedRewards(std::vector<eRewardType> rewards)
@@ -133,6 +141,24 @@ namespace YimMenu::Rewards
 				break;
 			case eRewardType::XP:
 				for (const auto& xp : RegularXP)
+				{
+					GiveScriptReward(xp, false);
+				}
+				break;
+			case eRewardType::HEALTHXP:
+				for (const auto& xp : HealthXP)
+				{
+					GiveScriptReward(xp, false);
+				}
+				break;
+			case eRewardType::STAMINAXP:
+				for (const auto& xp : StaminaXP)
+				{
+					GiveScriptReward(xp, false);
+				}
+				break;
+			case eRewardType::DEADEYEXP:
+				for (const auto& xp : DeadEyeXP)
 				{
 					GiveScriptReward(xp, false);
 				}

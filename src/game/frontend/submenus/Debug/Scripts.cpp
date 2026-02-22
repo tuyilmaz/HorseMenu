@@ -6,10 +6,12 @@
 #include "game/rdr/data/ScriptNames.hpp"
 #include "game/rdr/data/StackSizes.hpp"
 #include "game/rdr/Natives.hpp"
+#include <script/scrProgram.hpp>
 #include <script/scrThread.hpp>
 #include <script/scriptHandlerNetComponent.hpp>
 
 static rage::scrThread* s_SelectedThread;
+static rage::scrProgram* s_SelectedProgram;
 static int s_SelectedStackSize             = 128;
 static int s_NumFreeStacks                 = -1;
 static const char* s_SelectedScriptName    = "(Select)";
@@ -27,6 +29,86 @@ namespace
 
 namespace YimMenu::Submenus
 {
+
+	static void RenderBytecode(rage::scrProgram* program)
+	{
+		constexpr int bytesPerRow = 16;
+		const std::uint32_t codeSize = program->GetFullCodeSize();
+		const std::uint32_t totalRows = (codeSize + bytesPerRow - 1) / bytesPerRow;
+
+		static bool shouldJump = false;
+		static float targetScroll = -1.0f;
+		static char offsetInput[9] = "";
+
+		ImGui::SetNextItemWidth(150);
+		ImGui::InputText("##jumpoffset", offsetInput, IM_ARRAYSIZE(offsetInput));
+		ImGui::SameLine();
+		if (ImGui::Button("Jump to Offset"))
+		{
+			char* end = nullptr;
+			std::uint32_t offset = strtoul(offsetInput, &end, 0);
+			if (end != offsetInput && offset < codeSize)
+			{
+				std::uint32_t row = offset / bytesPerRow;
+				targetScroll = row * ImGui::GetFrameHeightWithSpacing();
+				shouldJump = true;
+			}
+		}
+
+		ImGui::BeginChild("##bytecode", ImVec2(610, 400), ImGuiChildFlags_Borders, ImGuiWindowFlags_HorizontalScrollbar);
+
+		if (shouldJump && targetScroll >= 0.0f)
+		{
+			ImGui::SetScrollY(targetScroll);
+			shouldJump = false;
+		}
+
+		ImGuiListClipper clipper;
+		clipper.Begin(totalRows);
+		while (clipper.Step())
+		{
+			for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; ++row)
+			{
+				std::uint32_t offset = row * bytesPerRow;
+
+				ImGui::Text("%08X: ", offset);
+				ImGui::SameLine(80);
+
+				for (int i = 0; i < bytesPerRow; ++i)
+				{
+					std::uint32_t index = offset + i;
+					if (index >= codeSize)
+						break;
+
+					if (auto byte = program->GetCodeAddress(index))
+					{
+						char hexStr[3];
+						snprintf(hexStr, sizeof(hexStr), "%02X", *byte);
+
+						ImGui::SetNextItemWidth(24);
+						ImGui::PushID(index);
+						if (ImGui::InputText("##byte", hexStr, sizeof(hexStr), ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_EnterReturnsTrue))
+						{
+							char* end = nullptr;
+							std::uint8_t newVal = static_cast<std::uint8_t>(strtoul(hexStr, &end, 16));
+							if (end != hexStr)
+								*byte = newVal; // this will conflict with the ScriptPatches class, but still useful to keep for quick testings
+						}
+						ImGui::PopID();
+						if (ImGui::IsItemActive() && ImGui::IsItemHovered())
+							ImGui::SetTooltip("Press ENTER to write.");
+
+						if (i < bytesPerRow - 1)
+							ImGui::SameLine();
+					}
+				}
+			}
+		}
+
+		clipper.End();
+		ImGui::EndChild();
+	}
+
 	std::shared_ptr<Category> BuildScriptsMenu()
 	{
 		auto scripts = std::make_unique<Category>("Scripts");
@@ -37,6 +119,7 @@ namespace YimMenu::Submenus
 			{
 				ImGui::TextDisabled("None");
 				s_SelectedThread = nullptr;
+				s_SelectedProgram = nullptr;
 				return;
 			}
 
@@ -57,7 +140,8 @@ namespace YimMenu::Submenus
 
 						if (ImGui::Selectable(Scripts::GetScriptName(script->m_Context.m_ScriptHash), s_SelectedThread == script))
 						{
-							s_SelectedThread     = script;
+							s_SelectedThread = script;
+							s_SelectedProgram = Scripts::FindScriptProgram(script->m_Context.m_ScriptHash);
 							s_SelectedScriptName = Scripts::GetScriptName(script->m_Context.m_ScriptHash);
 						}
 
@@ -74,49 +158,91 @@ namespace YimMenu::Submenus
 				ImGui::EndCombo();
 			}
 
-			if (s_SelectedThread)
+			if (!s_SelectedThread || !s_SelectedProgram || !s_SelectedProgram->IsValid() || s_SelectedProgram->m_RefCount == 0)
 			{
-				constexpr auto s_ThreadStateNames = std::to_array({"Idle", "Running", "Killed", "Paused", "Unk"});
-				ImGui::SetNextItemWidth(95.0f);
-				ImGui::Combo(
-				    "State", (int*)&s_SelectedThread->m_Context.m_State, s_ThreadStateNames.data(), s_ThreadStateNames.size(), -1);
-				ImGui::Text(std::format("StackSize: {}", s_SelectedThread->m_Context.m_StackSize).c_str());
-				ImGui::Text(std::format("PC: 0x{:X}", s_SelectedThread->m_Context.m_ProgramCounter).c_str());
+				s_SelectedThread = nullptr;
+				s_SelectedProgram = nullptr;
+				return;
+			}
 
-				if (s_SelectedThread->m_Context.m_State == rage::eThreadState::killed)
+			constexpr auto s_ThreadStateNames = std::to_array({"Idle", "Running", "Killed", "Paused", "Unk"});
+			ImGui::SetNextItemWidth(95.0f);
+			ImGui::Combo(
+			    "State", (int*)&s_SelectedThread->m_Context.m_State, s_ThreadStateNames.data(), s_ThreadStateNames.size(), -1);
+
+			if (s_SelectedThread->m_Context.m_State == rage::eThreadState::killed)
+			{
+				ImGui::Text(std::format("Exit Reason: {}", s_SelectedThread->m_ExitMessage).c_str());
+			}
+			else
+			{
+				if (ImGui::Button("Kill"))
 				{
-					ImGui::Text(std::format("Exit Reason: {}", s_SelectedThread->m_ExitMessage).c_str());
+					FiberPool::Push([] {
+						if (s_SelectedThread->m_Context.m_StackSize != 0)
+							s_SelectedThread->Kill();
+
+						s_SelectedThread->m_Context.m_State = rage::eThreadState::killed;
+					});
 				}
-				else
+				ImGui::SameLine();
+				if (ImGui::Button("Log Labels"))
 				{
-					if (s_SelectedThread->m_HandlerNetComponent)
-					{
-						auto handler = static_cast<rage::scriptHandlerNetComponent*>(s_SelectedThread->m_HandlerNetComponent);
-
-						if (handler->GetHost())
+					FiberPool::Push([] {
+						for (int i = 0; i < s_SelectedProgram->m_StringsCount; i++)
 						{
-							ImGui::Text("Host: %s", Player(handler->GetHost()).GetName());
+							if (auto str = s_SelectedProgram->GetString(i))
+							{
+								if (HUD::DOES_TEXT_LABEL_EXIST(str))
+								{
+									LOGF(INFO, "{} - {} (0x{:X}): {}", i, str, Joaat(str), HUD::GET_FILENAME_FOR_AUDIO_CONVERSATION(str));
+								}
+							}
 						}
+					});
+				}
 
-						if (ImGui::Button("Force Host"))
+				if (ImGui::TreeNode("Info"))
+				{
+					if (auto handler = static_cast<rage::scriptHandlerNetComponent*>(s_SelectedThread->m_HandlerNetComponent))
+					{
+						auto host = handler->GetHost();
+						auto hostPlayer = Player(host);
+						if (host)
+						{
+							ImGui::Text("Host: %s", hostPlayer.GetName());
+						}
+						ImGui::SameLine();
+						ImGui::BeginDisabled(hostPlayer == Self::GetPlayer());
+						if (ImGui::SmallButton("Take Control"))
 						{
 							FiberPool::Push([handler] {
 								handler->DoHostMigration(Self::GetPlayer().GetHandle(), 0xFFFF, true);
 							});
 						}
-
-						ImGui::SameLine();
+						ImGui::EndDisabled();
 					}
-
-					if (ImGui::Button("Kill"))
-					{
-						FiberPool::Push([] {
-							if (s_SelectedThread->m_Context.m_StackSize != 0)
-								s_SelectedThread->Kill();
-
-							s_SelectedThread->m_Context.m_State = rage::eThreadState::killed;
-						});
-					}
+					ImGui::BeginGroup();
+					ImGui::Text("Thread ID: %d", s_SelectedThread->m_Context.m_ThreadId);
+					ImGui::Text("Stack Size: %d", s_SelectedThread->m_Context.m_StackSize);
+					ImGui::Text("Stack Pointer: 0x%X", s_SelectedThread->m_Context.m_StackPointer);
+					ImGui::Text("Program Counter: 0x%X", s_SelectedThread->m_Context.m_ProgramCounter);
+					ImGui::Text("Code Size: %d", s_SelectedProgram->m_CodeSize);
+					ImGui::EndGroup();
+					ImGui::SameLine();
+					ImGui::BeginGroup();
+					ImGui::Text("Arg Count: %d", s_SelectedProgram->m_ArgCount);
+					ImGui::Text("Local Count: %d", s_SelectedProgram->m_LocalCount);
+					ImGui::Text("Global Count: %d", s_SelectedProgram->m_GlobalCount);
+					ImGui::Text("Native Count: %d", s_SelectedProgram->m_NativeCount);
+					ImGui::Text("String Count: %d", s_SelectedProgram->m_StringsCount);
+					ImGui::EndGroup();
+					ImGui::TreePop();
+				}
+				if (ImGui::TreeNode("Bytecode"))
+				{
+					RenderBytecode(s_SelectedProgram);
+					ImGui::TreePop();
 				}
 			}
 		}));

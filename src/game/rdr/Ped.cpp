@@ -164,7 +164,7 @@ namespace YimMenu
 		auto r3  = PED::IS_PED_IN_COMBAT(GetHandle(), PLAYER::PLAYER_PED_ID()) ? 5 : 0;
 		auto rel = std::max({r1, r2, r3});
 
-		return rel == 3 || rel == 4 || rel == 5;
+		return rel == 3 || rel == 4 || rel == 5 || rel == 6;
 	}
 
 	void Ped::SetScale(float scale)

@@ -140,6 +140,8 @@ namespace YimMenu::Hooks
 		extern const char* GetTextLabel(void* _this, const char* label);
 		extern bool CheckConditionIsMale(__int64 a1, __int64 a2);
 		extern bool CheckConditionIsFemale(__int64 a1, __int64 a2);
+
+		extern bool GiveAwardWithHash(std::uint32_t* AwardHash);
 	}
 
 	namespace Info

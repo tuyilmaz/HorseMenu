@@ -2,7 +2,6 @@
 
 #include "core/commands/BoolCommand.hpp"
 #include "core/commands/Commands.hpp"
-#include "core/commands/HotkeySystem.hpp"
 #include "core/frontend/Notifications.hpp"
 #include "game/backend/FiberPool.hpp"
 #include "game/backend/Players.hpp"
@@ -69,8 +68,6 @@ namespace YimMenu
 			{
 				*Pointers.ExplosionBypass = true;
 				Commands::RunLoopedCommands();
-				if (GetForegroundWindow() == *Pointers.Hwnd && !HUD::IS_PAUSE_MENU_ACTIVE() && !GUI::IsOpen())
-					g_HotkeySystem.Update();
 				Self::Update();
 			}
 			ScriptMgr::Yield();

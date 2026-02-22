@@ -4,6 +4,12 @@
 
 namespace YimMenu::Hooks
 {
+	bool Misc::GiveAwardWithHash(std::uint32_t* AwardHash)
+	{
+		LOG(INFO) << "GiveAward called:\n\tAwardHash: " << HEX(AwardHash[0]) << "\n\tUnk: " << HEX(AwardHash[1]);
+		return BaseHook::Get<Misc::GiveAwardWithHash, DetourHook<decltype(&Misc::GiveAwardWithHash)>>()->Original()(AwardHash);
+	}
+
 	// This is *not* noreturn
 	void Misc::ThrowFatalError(int code, int fileHash, int fileLine)
 	{

@@ -43,13 +43,13 @@ namespace YimMenu::Submenus
 			std::string newText{};
 			std::string inputLower = data->Buf;
 			std::transform(inputLower.begin(), inputLower.end(), inputLower.begin(), ::tolower);
-			for (const auto& [key, model] : Data::g_PedModels)
+			for (const auto& [key, modelinfo] : Data::g_PedModels)
 			{
-				std::string modelLower = model;
+				std::string modelLower = modelinfo.first;
 				std::transform(modelLower.begin(), modelLower.end(), modelLower.begin(), ::tolower);
 				if (modelLower.find(inputLower) != std::string::npos)
 				{
-					newText = model;
+					newText = modelinfo.first;
 				}
 			}
 
@@ -77,7 +77,7 @@ namespace YimMenu::Submenus
 		static std::string pedModelBuffer;
 		static float scale = 1;
 		static bool dead, invis, godmode, freeze, companion, sedated;
-		static int formation;
+		static int selectedPreset = 0, formation;
 		static std::vector<YimMenu::Ped> spawnedPeds;
 		InputTextWithHint("##pedmodel", "Ped Model", &pedModelBuffer, ImGuiInputTextFlags_CallbackCompletion, nullptr, PedSpawnerInputCallback)
 		    .Draw();
@@ -89,17 +89,47 @@ namespace YimMenu::Submenus
 
 			std::string bufferLower = pedModelBuffer;
 			std::transform(bufferLower.begin(), bufferLower.end(), bufferLower.begin(), ::tolower);
-			for (const auto& [hash, model] : Data::g_PedModels)
+			for (const auto& [hash, modelinfo] : Data::g_PedModels)
 			{
-				std::string pedModelLower = model;
+				std::string pedModelLower = modelinfo.first;
 				std::transform(pedModelLower.begin(), pedModelLower.end(), pedModelLower.begin(), ::tolower);
-				if (pedModelLower.find(bufferLower) != std::string::npos && ImGui::Selectable(model))
+				if (pedModelLower.find(bufferLower) != std::string::npos && ImGui::Selectable(modelinfo.first))
 				{
-					pedModelBuffer = model;
+					pedModelBuffer = modelinfo.first;
+					selectedPreset = 0;
 				}
 			}
 
 			ImGui::EndListBox();
+		}
+
+		joaat_t pedModelHash = Joaat(pedModelBuffer);
+		if (Data::g_PedModels.contains(pedModelHash))
+		{
+			auto& presets = Data::g_PedModels.at(pedModelHash).second;
+			if (!presets.empty())
+			{
+				if (ImGui::BeginCombo(
+				        "Outfit Presets", 
+						presets[selectedPreset] == "" ? 
+						("Preset " + std::to_string(selectedPreset + 1)).c_str() : 
+						presets[selectedPreset])
+					)
+				{
+					for (int i = 0; i < presets.size(); i++)
+					{
+						if (ImGui::Selectable(
+						    presets[i] == "" ? 
+							("Preset " + std::to_string(i + 1)).c_str() : 
+							presets[i], i == selectedPreset)
+							)
+						{
+							selectedPreset = i;
+						}
+					}
+					ImGui::EndCombo();
+				}
+			}
 		}
 
 		ImGui::Checkbox("Spawn Dead", &dead);
@@ -156,6 +186,12 @@ namespace YimMenu::Submenus
 					ped.SetScale(scale);
 
 				ped.SetConfigFlag(PedConfigFlag::IsTranquilized, sedated);
+
+				if (selectedPreset)
+				{
+					PED::_EQUIP_META_PED_OUTFIT_PRESET(ped.GetHandle(), selectedPreset, 0);
+					PED::_UPDATE_PED_VARIATION(ped.GetHandle(), 0, 1, 1, 1, 0);
+				}
 
 				spawnedPeds.push_back(ped);
 

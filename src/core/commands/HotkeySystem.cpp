@@ -1,30 +1,33 @@
 #include "HotkeySystem.hpp"
-#include "game/backend/FiberPool.hpp" // TODO: yet another game import in core
-                                      // we should migrate the FiberPool to core eventually
-#include "game/backend/ScriptMgr.hpp"
+
 #include "Commands.hpp"
 #include "LoopedCommand.hpp"
-
-// TODO: serialization isn't stable
+#include "game/backend/FiberPool.hpp"
+#include "game/backend/ScriptMgr.hpp"
+#include "game/frontend/GUI.hpp"
+#include "game/rdr/Natives.hpp"       // game import in core!
+#include "game/pointers/Pointers.hpp" // game import in core!
+#include "util/Joaat.hpp"
 
 namespace YimMenu
 {
-	HotkeySystem::HotkeySystem() : 
-		IStateSerializer("hotkeys")
+	HotkeySystem::HotkeySystem() :
+	    IStateSerializer("hotkeys")
 	{
 	}
 
 	void HotkeySystem::RegisterCommands()
 	{
 		auto& cmds = Commands::GetCommands();
-		
+
 		for (auto& [hash, cmd] : cmds)
 		{
 			CommandLink link;
 			m_CommandHotkeys.insert(std::make_pair(hash, link));
 		}
-		
-		LOG(INFO) << "Registered " << m_CommandHotkeys.size() << " commands";
+
+		m_CommandHotkeys.at("chathelper"_J).m_Chain.clear(); // ensure chat is always bound
+		m_CommandHotkeys.at("chathelper"_J).m_Chain.push_back(0x54);
 	}
 
 	bool HotkeySystem::ListenAndApply(int& Hotkey, std::vector<int> Blacklist)
@@ -67,62 +70,72 @@ namespace YimMenu
 	void HotkeySystem::CreateHotkey(std::vector<int>& chain)
 	{
 		static auto is_key_unique = [this](int Key, std::vector<int> List) -> bool {
-			for (auto& Key_ : List)
-				if (GetHotkeyLabel(Key_) == GetHotkeyLabel(Key))
+			for (auto& _key : List)
+				if (_key == Key)
 					return false;
 
 			return true;
 		};
 
 		int pressed_key = 0;
-		ListenAndApply(pressed_key, chain);
-
-		if (pressed_key > 1)
+		if (ListenAndApply(pressed_key, chain))
 		{
+			MarkStateDirty();
+
 			if (is_key_unique(pressed_key, chain))
 			{
 				chain.push_back(pressed_key);
 			}
 		}
-
-		MarkStateDirty();
 	}
 
-	void HotkeySystem::Update()
+	void HotkeySystem::RunScriptImpl()
 	{
-		for (auto& [hash, link] : m_CommandHotkeys)
+		while (g_Running)
 		{
-			if (link.m_Chain.empty() || link.m_BeingModified)
-				continue;
-	
-			bool all_keys_pressed = true;
-	
-			for (auto modifier : link.m_Chain)
+			if (GetForegroundWindow() == *Pointers.Hwnd && !HUD::IS_PAUSE_MENU_ACTIVE() && !m_BeingModified && !GUI::IsUsingKeyboard())
 			{
-				if (!(GetAsyncKeyState(modifier) & 0x8000))
+				for (auto& [hash, link] : m_CommandHotkeys)
 				{
-					all_keys_pressed = false;
-				}
-			}
-	
-			if (all_keys_pressed && std::chrono::system_clock::now() - m_LastHotkeyTriggerTime > 100ms)
-			{
-				auto command = Commands::GetCommand(hash);
-				if (command)
-				{
-					// TODO: this is the only way I can prevent chat from blocking the main loop while keeping everything else fast
-					if (hash != "chathelper"_J)
-						command->Call();
-					else
+					if (link.m_Chain.empty())
+						continue;
+
+					bool all_keys_pressed = true;
+
+					for (auto modifier : link.m_Chain)
 					{
-						FiberPool::Push([command] {
-							command->Call();
-						});
+						if (!(GetAsyncKeyState(modifier) & 0x8000))
+						{
+							all_keys_pressed = false;
+						}
+					}
+
+					if (all_keys_pressed && std::chrono::system_clock::now() - m_LastHotkeyTriggerTime > 100ms)
+					{
+						auto command = Commands::GetCommand(hash);
+						if (command)
+						{
+							// TODO: this is the only way I can prevent chat from blocking the main loop while keeping everything else fast
+							if (hash != "chathelper"_J)
+								command->Call();
+							else
+							{
+								FiberPool::Push([command] {
+									command->Call();
+								});
+							}
+						}
+						m_LastHotkeyTriggerTime = std::chrono::system_clock::now();
 					}
 				}
-				m_LastHotkeyTriggerTime = std::chrono::system_clock::now();
 			}
+			ScriptMgr::Yield();
 		}
+	}
+
+	void HotkeySystem::RunScript()
+	{
+		g_HotkeySystem.RunScriptImpl();
 	}
 
 	void HotkeySystem::SaveStateImpl(nlohmann::json& state)
@@ -141,7 +154,12 @@ namespace YimMenu
 		for (auto& [key, value] : state.items())
 		{
 			if (m_CommandHotkeys.contains(std::atoi(key.data())))
-				m_CommandHotkeys[std::atoi(key.data())].m_Chain = value.get<std::vector<int>>(); 
+				m_CommandHotkeys[std::atoi(key.data())].m_Chain = value.get<std::vector<int>>();
 		}
+	}
+
+	void HotkeySystem::SetBeingModifed(bool being_modified)
+	{
+		g_HotkeySystem.m_BeingModified = being_modified;
 	}
 }

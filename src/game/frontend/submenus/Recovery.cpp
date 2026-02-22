@@ -2,8 +2,10 @@
 
 #include "core/commands/BoolCommand.hpp"
 #include "core/commands/Commands.hpp"
-#include "core/frontend/Notifications.hpp"
 #include "game/backend/FiberPool.hpp"
+#include "game/backend/NativeHooks.hpp"
+#include "game/backend/ScriptMgr.hpp"
+#include "game/backend/ScriptPatches.hpp"
 #include "game/frontend/items/Items.hpp"
 #include "game/rdr/data/Stats.hpp"
 #include "game/rdr/Natives.hpp"
@@ -12,11 +14,80 @@
 #include "game/rdr/Stats.hpp"
 #include "util/Rewards.hpp"
 
+template<size_t len>
+struct TransactionArray
+{
+	uint64_t count = len;
+	uint64_t items[len];
+};
+
 namespace YimMenu::Submenus
 {
+	std::shared_ptr<ScriptPatches::Patch> BypassCondition{};
+	std::shared_ptr<ScriptPatches::Patch> ModifierHash{};
+
+	void _0xA3B8D31C13CB4239(rage::scrNativeCallContext* ctx)
+	{
+		int TransactionID = ctx->GetArg<int>(0);
+		joaat_t ActionHash = ctx->GetArg<joaat_t>(1);
+		uint64_t* ItemInfo1 = ctx->GetArg<uint64_t*>(2);
+		int ItemCount = ctx->GetArg<int>(3);
+		uint64_t* ItemInfo2 = ctx->GetArg<uint64_t*>(4);
+
+		ctx->SetReturnValue<BOOL>(NETSHOPPING::_0xA3B8D31C13CB4239(TransactionID, ActionHash, ItemInfo1, ItemCount, ItemInfo2, 0));
+
+		std::stringstream iss;
+		iss << "_0xA3B8D31C13CB4239 called from " << Scripts::GetScriptName(SCRIPTS::GET_HASH_OF_THIS_SCRIPT_NAME()) << std::endl;
+		iss << "TID: " << TransactionID << std::endl;
+		iss << "Action Hash: " << HEX(ActionHash) << std::endl;
+		for (int i = 0; i < ItemCount; i++)
+			iss << "ItemInfo1[" << i << "] = " << HEX(ItemInfo1[i]) << std::endl;
+		for (int i = 0; i < ItemCount; i++)
+			iss << "ItemInfo2[" << i << "] = " << HEX(ItemInfo2[i]) << std::endl;
+		iss << "***************************************" << std::endl;
+		LOG(INFO) << iss.str();
+	}
+
+	void _CASHINVENTORY_TRANSACTION_FIRE_AND_FORGET_ITEM(rage::scrNativeCallContext* ctx)
+	{
+		joaat_t ActionHash = ctx->GetArg<joaat_t>(0);
+		int* TransactionID = ctx->GetArg<int*>(1);
+		uint64_t* ItemInfo = ctx->GetArg<uint64_t*>(2);
+		int ItemCount = ctx->GetArg<int>(3);
+
+		ctx->SetReturnValue<int>(NETSHOPPING::_CASHINVENTORY_TRANSACTION_FIRE_AND_FORGET_ITEM(ActionHash, TransactionID, ItemInfo, ItemCount));
+
+		std::stringstream iss;
+		iss << "_CASHINVENTORY_TRANSACTION_FIRE_AND_FORGET_ITEM called from " << Scripts::GetScriptName(SCRIPTS::GET_HASH_OF_THIS_SCRIPT_NAME()) << std::endl;
+		iss << "TID: " << TransactionID << std::endl;
+		iss << "Action Hash: " << HEX(ActionHash) << std::endl;
+		for (int i = 0; i < ItemCount; i++)
+			iss << "ItemInfo[" << i << "] = " << HEX(ItemInfo[i]) << std::endl;
+		iss << "***************************************" << std::endl;
+		LOG(INFO) << iss.str();
+	}
+
+	/* void GET_EVENT_AT_INDEX(rage::scrNativeCallContext* ctx)
+	{
+		int eventGroup = ctx->GetArg<int>(0);
+		int eventIndex = ctx->GetArg<int>(1);
+		Hash eventAtIndex = SCRIPTS::GET_EVENT_AT_INDEX(eventGroup, eventIndex);
+
+		if (eventAtIndex == 1741908893)
+		{
+			uint64_t items[12];
+			if (SCRIPTS::GET_EVENT_DATA(eventGroup, eventIndex, &items, 12))
+			{
+				LOG(INFO) << "Claimed Award: " << HEX(items[5]);
+			}
+		}
+
+		ctx->SetReturnValue<Hash>(SCRIPTS::GET_EVENT_AT_INDEX(eventGroup, eventIndex));
+	}*/
 
 	Recovery::Recovery() :
-	    Submenu::Submenu("Recovery")
+		#define ICON_FA_SACK_DOLLAR "\xef\xa0\x9d"
+	    Submenu::Submenu("Recovery", ICON_FA_SACK_DOLLAR)
 	{
 		auto recovery               = std::make_shared<Category>("Recovery");
 		auto spawnCollectiblesGroup = std::make_shared<Group>("Spawn Collectibles");
@@ -29,6 +100,7 @@ namespace YimMenu::Submenus
 			if (recoveryCommand->GetState())
 			{
 				static Rewards::eRewardType selected{};
+				static int awardamount = 1;
 				std::map<Rewards::eRewardType, std::string> reward_translations = {
 				    {Rewards::eRewardType::HEIRLOOMS, "Heirlooms"},
 				    {Rewards::eRewardType::COINS, "Coins"},
@@ -47,6 +119,9 @@ namespace YimMenu::Submenus
 				    {Rewards::eRewardType::TREASURE, "Treasure Reward"},
 				    {Rewards::eRewardType::CAPITALE, "Capitale"},
 				    {Rewards::eRewardType::XP, "25K XP"},
+				    {Rewards::eRewardType::HEALTHXP, "Health XP"},
+				    {Rewards::eRewardType::STAMINAXP, "Stamina XP"},
+				    {Rewards::eRewardType::DEADEYEXP, "Dead Eye XP"},
 				    {Rewards::eRewardType::MOONSHINERXP, "200 Moonshiner XP"},
 				    {Rewards::eRewardType::TRADERXP, "200 Trader XP"},
 				    {Rewards::eRewardType::COLLECTORXP, "200 Collector XP"},
@@ -66,31 +141,135 @@ namespace YimMenu::Submenus
 						if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
 						{
 							FiberPool::Push([] {
-								Rewards::GiveRequestedRewards({selected});
+								for (int i = 0; i < awardamount; i++)
+									Rewards::GiveRequestedRewards({selected});
 							});
 						}
 					}
 					ImGui::EndCombo();
 				}
 
+				ImGui::SliderInt("Amount", &awardamount, 1, 10);
+
+				ImGui::SameLine();
+
 				if (ImGui::Button("Add Selected"))
 				{
 					FiberPool::Push([] {
-						Rewards::GiveRequestedRewards({selected});
+						for (int i = 0; i < awardamount; i++)
+							Rewards::GiveRequestedRewards({selected});
 					});
 				}
 
-				static char awardBuffer[255]{};
-				ImGui::InputText("Award Hash", awardBuffer, sizeof(awardBuffer));
+				ImGui::NewLine();
+
+				static std::uint32_t awardHash{};
+				ImGui::InputScalar("Award Hash", ImGuiDataType_U32, &awardHash);
+				static std::uint32_t modifierHash = 0;
+				ImGui::InputScalar("Modifier Hash", ImGuiDataType_U32, &modifierHash);
 				ImGui::SameLine();
-				if (ImGui::Button("Give Award"))
+				static bool method = true;
+				ImGui::Checkbox("Loop", &method);
+				if (ImGui::Button("Give Award with Modifier"))
+				{
+					FiberPool::Push([] {
+						std::uint32_t AwardHash_unk[2];
+						AwardHash_unk[0] = awardHash;
+						AwardHash_unk[1] = modifierHash;
+
+						if (method)
+						{
+							for (int i = 0; i < awardamount; i++)
+								Pointers.GiveAwardWithHash(reinterpret_cast<std::uint32_t*>(&AwardHash_unk));
+						}
+						else
+						{
+							int oldVal = 0;
+							memcpy(&oldVal, Pointers.GiveAwardAmount, sizeof(oldVal));
+							memcpy(Pointers.GiveAwardAmount, &awardamount, sizeof(awardamount));
+							Pointers.GiveAwardWithHash(reinterpret_cast<std::uint32_t*>(&AwardHash_unk));
+							memcpy(Pointers.GiveAwardAmount, &oldVal, sizeof(oldVal));
+						}
+
+						//if (!Scripts::RequestScript("interactive_campfire"_J))
+							//return;
+
+						/* if (modifierHash)
+						{
+							if (!BypassCondition)
+								BypassCondition = ScriptPatches::AddPatch("interactive_campfire"_J, true, "22 08 1E", 90, {0x0, 0x0});
+
+							std::vector<uint8_t> patch(sizeof(uint32_t));
+							memcpy(patch.data(), &modifierHash, sizeof(uint32_t));
+							ModifierHash = ScriptPatches::AddPatch("interactive_campfire"_J, true, "22 08 1E", 95, patch);
+
+							BypassCondition->Enable();
+							ModifierHash->Enable();
+
+							ScriptFunctions::GiveItemDatabaseAward.StaticCall(awardHash, false, 255, 0, true);
+
+							BypassCondition->Disable();
+							ModifierHash->Disable();
+							return;
+						}*/
+
+						/* TransactionArray<10> unk;
+						TransactionArray<11> unk2;
+						uint64_t unk3[4]{};
+
+						if (modifierHash != 0)
+							ScriptFunctions::AddAwardModifier.StaticCall(&unk2, modifierHash);
+
+						ScriptFunctions::GiveItemDatabaseAward_.StaticCall(awardHash, unk3, &unk2, &unk, false, 255, 0, modifierHash != 0);*/
+					});
+				}
+				ImGui::SameLine();
+				if (ImGui::Button("Give Loot Table"))
 				{
 					FiberPool::Push([] {
 						if (!Scripts::RequestScript("interactive_campfire"_J))
 							return;
-						ScriptFunctions::GiveItemDatabaseAward.StaticCall(Joaat(awardBuffer), false, 255, 0, false);
+
+						ScriptFunctions::GiveLootTableAward.StaticCall(awardHash, 0);
 					});
 				}
+				static bool hooked = false;
+				if (!hooked && ImGui::Button("Hook Netshopping"))
+				{
+					FiberPool::Push([] {
+						NativeHooks::AddHook("ALL_SCRIPTS"_J, NativeIndex::_0xA3B8D31C13CB4239, _0xA3B8D31C13CB4239);
+						NativeHooks::AddHook("ALL_SCRIPTS"_J, NativeIndex::_CASHINVENTORY_TRANSACTION_FIRE_AND_FORGET_ITEM, _CASHINVENTORY_TRANSACTION_FIRE_AND_FORGET_ITEM);
+						//NativeHooks::AddHook("ALL_SCRIPTS"_J, NativeIndex::GET_EVENT_AT_INDEX, GET_EVENT_AT_INDEX);
+						hooked = true;
+					});
+				}
+				static bool freeBuy = false;
+				if (ImGui::Button("Buy M1899"))
+				{
+					FiberPool::Push([] {
+						int txnId;
+
+						// 1. Start basket
+						NETSHOPPING::_CASHINVENTORY_TRANSACTION_START(&txnId, "basket"_J, 2113164098);
+
+						// 2. Build item
+						uint64_t item[18]{};
+						item[8] = "WEAPON_PISTOL_M1899"_J;
+						item[9] = 1;
+						item[11] = -1591664384;
+						item[12] = 1248274121;   // buy context
+						item[13] = freeBuy ? 0x3B79583B : 0xC96FEC6B; //997808187
+						item[17] = item[8];
+
+						// 3. Add to basket (skips shop UI unlock checks entirely)
+						NETSHOPPING::_0xA3B8D31C13CB4239(txnId, 2113164098, &item, 18, &item, 0);
+
+						// 4. Checkout — sends directly to server
+						NETSHOPPING::_CASHINVENTORY_TRANSACTION_CHECKOUT(txnId);
+					});
+				}
+				ImGui::SameLine();
+				ImGui::Checkbox("Free Buy", &freeBuy);
 			}
 			else
 			{
@@ -135,6 +314,7 @@ namespace YimMenu::Submenus
 			}
 		}));
 		recoveryOptions->AddItem(std::make_shared<BoolCommandItem>("unlimiteditems"_J));
+		recoveryOptions->AddItem(std::make_shared<BoolCommandItem>("fastmoonshine"_J));
 		recovery->AddItem(spawnCollectiblesGroup);
 		recovery->AddItem(spawnHerbsGroup);
 		recovery->AddItem(recoveryOptions);
@@ -224,11 +404,6 @@ namespace YimMenu::Submenus
 				{
 					FiberPool::Push([] {
 						joaat_t baseid = Joaat(baseidBuffer), permutationid = Joaat(permutationidBuffer);
-						if (!Stats::IsValid(baseid, permutationid))
-						{
-							Notifications::Show("Stat Editor", "Invalid stat!", NotificationType::Error);
-							return;
-						}
 						switch (StatType)
 						{
 						case 0:

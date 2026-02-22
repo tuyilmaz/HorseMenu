@@ -48,9 +48,15 @@ namespace YimMenu::Rewards
 
 	inline const RewardInfo CapitaleReward[]{{0, "REWARD_CAPITALE_CHEST_LARGE"_J, "Capitale Reward"}};
 
+	inline const RewardInfo HealthXP[]{{0, 0xDC9C786B, "Health XP"}};
+
+	inline const RewardInfo StaminaXP[]{{0, 0xE653B40A, "Stamina XP"}};
+
+	inline const RewardInfo DeadEyeXP[]{{0, 0x7B93DA7B, "Dead Eye XP"}};
+
 	inline const RewardInfo RegularXP[]{{0, "AWARD_XP_MISSION_COMPLETE_REWARD_XXL"_J, "25K XP Reward"}};
 
-	inline const RewardInfo MoonshinerXP[]{{0, 0xCBA92A55, "Moonshine XP Reward"}};
+	inline const RewardInfo MoonshinerXP[]{{0, 0xCBA92A55, "Moonshiner XP Reward"}};
 
 	inline const RewardInfo TraderXP[]{{0, 0xB11109AB, "Trader XP Reward"}};
 
@@ -82,6 +88,9 @@ namespace YimMenu::Rewards
 		TREASURE,
 		CAPITALE,
 		XP,
+		HEALTHXP,
+		STAMINAXP,
+		DEADEYEXP,
 		MOONSHINERXP,
 		TRADERXP,
 		COLLECTORXP,

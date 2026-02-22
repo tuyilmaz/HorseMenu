@@ -5,35 +5,44 @@
 #include "core/commands/LoopedCommand.hpp"
 #include "game/backend/Self.hpp"
 #include "game/features/Features.hpp"
+#include "game/frontend/items/DrawHotkey.hpp"
 #include "game/frontend/items/Items.hpp"
+#include "game/frontend/submenus/Settings/LuaScripts.hpp"
 
 namespace YimMenu::Submenus
 {
 	// TODO: refactor this
 	static void Hotkeys()
 	{
-		ImGui::BulletText("Hold the command name clicked to change its hotkey");
-		ImGui::BulletText("Press any registered key to remove");
+		ImGui::BulletText("Hold the button with the command name and enter a keystroke to change its hotkey");
+		ImGui::BulletText("If a command has an existing hotkey, clicking the button will remove it");
 
 		ImGui::Spacing();
 		ImGui::Separator();
 		ImGui::Spacing();
 
-		for (auto& [Hash, Command] : Commands::GetCommands())
+		// this assumes we can't add new commands in runtime, but a lot of other subsystems assume that too
+		static std::map<std::string, CommandLink*> sortedCommands;
+		static bool commandsSorted = []() {
+			for (auto& [hash, command] : Commands::GetCommands())
+			{
+				if (auto it = g_HotkeySystem.m_CommandHotkeys.find(hash); it != g_HotkeySystem.m_CommandHotkeys.end())
+					sortedCommands.emplace(command->GetLabel(), &it->second);
+			}
+			return true;
+		}();
+
+		HotkeySystem::SetBeingModifed(false);
+
+		for (auto& [name, link] : sortedCommands)
 		{
-			ImGui::PushID(Hash);
-
-			if (g_HotkeySystem.m_CommandHotkeys.find(Hash) != g_HotkeySystem.m_CommandHotkeys.end())
-				HotkeySetter(Hash).Draw();
-
-			ImGui::Spacing();
-
-			ImGui::PopID();
+			DrawHotkey(link, name);
 		}
 	};
 
 	Settings::Settings() :
-	    Submenu::Submenu("Settings")
+		#define ICON_FA_GEARS "\xef\x80\x93"
+	    Submenu::Submenu("Settings", ICON_FA_GEARS)
 	{
 		auto hotkeys           = std::make_shared<Category>("Hotkeys");
 		auto gui               = std::make_shared<Category>("GUI");
@@ -43,7 +52,7 @@ namespace YimMenu::Submenus
 		auto scriptEventGroup  = std::make_shared<Group>("Script Events");
 		auto playerEsp         = std::make_shared<Group>("Player ESP", 10);
 		auto pedEsp            = std::make_shared<Group>("Ped ESP", 10);
-		auto overlay            = std::make_shared<Group>("Overlay");
+		auto overlay           = std::make_shared<Group>("Overlay");
 		auto context           = std::make_shared<Group>("Context Menu");
 		auto misc              = std::make_shared<Group>("Misc");
 
@@ -123,5 +132,6 @@ namespace YimMenu::Submenus
 		AddCategory(std::move(hotkeys));
 		AddCategory(std::move(gui));
 		AddCategory(std::move(protections));
+		AddCategory(BuildLuaScriptsMenu());
 	}
 }

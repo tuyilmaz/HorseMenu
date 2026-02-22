@@ -415,6 +415,15 @@ namespace YimMenu
 			HandleCloneRemove = ptr.As<PVOID>();
 		});
 
+		constexpr auto giveAwardPtrn = Pattern<"E8 ? ? ? ? 48 83 C3 ? 48 3B DE 75 ? 0F B7 47 ? ? ? ? 48 8B CF">("GiveAwardWithHash");
+		scanner.Add(giveAwardPtrn, [this](PointerCalculator ptr) {
+			GiveAwardWithHash = ptr.Add(1).Rip().As<Functions::GiveAwardWithHash>();
+		});
+		constexpr auto giveAwardAmountPtrn = Pattern<"E8 ? ? ? ? 48 8D 05 ? ? ? ? ? ? ? 33 C0 89 83 ? ? ? ? 48 89 83 ? ? ? ? 89 83 ? ? ? ? 48 8B C3">("GiveAwardAmount");
+		scanner.Add(giveAwardAmountPtrn, [this](PointerCalculator ptr) {
+			GiveAwardAmount = ptr.Add(1).Rip().Add(0x50).As<PVOID>();
+		});
+
 		constexpr auto handleSessionEventPtrn = Pattern<"83 F9 16 0F 8F 0B">("HandleSessionEvent");
 		scanner.Add(handleSessionEventPtrn, [this](PointerCalculator ptr) {
 			HandleSessionEvent = ptr.Sub(0x29).As<PVOID>();

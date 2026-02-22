@@ -90,6 +90,7 @@ namespace YimMenu
 		BaseHook::Add<Hooks::Misc::GetTextLabel>(new DetourHook("GetTextLabel", Pointers.GetTextLabel, Hooks::Misc::GetTextLabel));
 		BaseHook::Add<Hooks::Misc::CheckConditionIsMale>(new DetourHook("CheckConditionIsMale", Pointers.CheckConditionIsMale, Hooks::Misc::CheckConditionIsMale));
 		BaseHook::Add<Hooks::Misc::CheckConditionIsFemale>(new DetourHook("CheckConditionIsFemale", Pointers.CheckConditionIsFemale, Hooks::Misc::CheckConditionIsFemale));
+		BaseHook::Add<Hooks::Misc::GiveAwardWithHash>(new DetourHook("GiveAwardWithHash", Pointers.GiveAwardWithHash, Hooks::Misc::GiveAwardWithHash));
 
 		BaseHook::Add<Hooks::Info::NetworkRequest>(new DetourHook("NetworkReqeust", Pointers.NetworkRequest, Hooks::Info::NetworkRequest));
 
