@@ -7,11 +7,6 @@ namespace YimMenu
 	class UIManager
 	{
 	public:
-		static void AddSubmenu(const std::shared_ptr<Submenu>&& submenu)
-		{
-			GetInstance().AddSubmenuImpl(std::move(submenu));
-		}
-
 		static void AddSubmenu(std::shared_ptr<Submenu> submenu)
 		{
 			GetInstance().AddSubmenuImpl(std::move(submenu));

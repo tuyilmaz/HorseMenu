@@ -8,6 +8,7 @@
 
 #include <atomic>
 #include <queue>
+#include <variant>
 
 namespace YimMenu::Lua
 {

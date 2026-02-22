@@ -56,6 +56,12 @@ namespace YimMenu::Lua
 			return 1;
 		}
 
+		static int IsAnimal(lua_State* state)
+		{
+			lua_pushboolean(state, GetObject<YimMenu::Entity>(state, 1).IsAnimal());
+			return 1;
+		}
+
 		static int IsMissionEntity(lua_State* state)
 		{
 			lua_pushboolean(state, GetObject<YimMenu::Entity>(state, 1).IsMissionEntity());
@@ -137,7 +143,11 @@ namespace YimMenu::Lua
 		}
 
 		// GetNetworkObject
-		// GetOwner
+		static int GetOwner(lua_State* state)
+		{
+			lua_pushinteger(state, GetObject<YimMenu::Entity>(state, 1).GetOwner());
+			return 0;
+		}
 
 		static int GetNetworkObjectId(lua_State* state)
 		{
@@ -157,7 +167,11 @@ namespace YimMenu::Lua
 			return 0;
 		}
 
-		// ForceSync
+		static int ForceSync(lua_State* state)
+		{
+			GetObject<YimMenu::Entity>(state, 1).ForceSync();
+			return 0;
+		}
 
 		static int IsInvincible(lua_State* state)
 		{
@@ -265,6 +279,7 @@ namespace YimMenu::Lua
 		SetFunction(state, Entity::IsVehicle, "is_vehicle");
 		SetFunction(state, Entity::IsObject, "is_object");
 		SetFunction(state, Entity::IsPlayer, "is_player");
+		SetFunction(state, Entity::IsAnimal, "is_animal");
 		SetFunction(state, Entity::IsMissionEntity, "is_mission_entity");
 		SetFunction(state, Entity::GetModel, "get_model");
 		SetFunction(state, Entity::GetPosition, "get_position");
@@ -278,9 +293,11 @@ namespace YimMenu::Lua
 		SetFunction(state, Entity::Delete, "delete");
 		SetFunction(state, Entity::IsNetworked, "is_networked");
 		SetFunction(state, Entity::HasControl, "has_control");
+		SetFunction(state, Entity::GetOwner, "get_owner");
 		SetFunction(state, Entity::GetNetworkObjectId, "get_network_object_id");
 		SetFunction(state, Entity::PreventMigration, "prevent_migration");
 		SetFunction(state, Entity::ForceControl, "force_control");
+		SetFunction(state, Entity::ForceSync, "force_sync");
 		SetFunction(state, Entity::IsInvincible, "is_invincible");
 		SetFunction(state, Entity::SetInvincible, "set_invincible");
 		SetFunction(state, Entity::IsDead, "is_dead");
